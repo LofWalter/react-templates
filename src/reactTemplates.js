@@ -56,6 +56,7 @@ const requireAttr = 'rt-require'
 const importAttr = 'rt-import'
 const statelessAttr = 'rt-stateless'
 const preAttr = 'rt-pre'
+const skippedProps = ["data-bind"]
 
 const reactTemplatesSelfClosingTags = [includeNode]
 
@@ -180,7 +181,9 @@ function generateProps(node, context) {
         if (props.hasOwnProperty(propKey) && propKey !== reactSupport.classNameProp) {
             throw RTCodeError.build(context, node, `duplicate definition of ${propKey} ${JSON.stringify(node.attribs)}`)
         }
-        if (_.startsWith(key, 'on') && !utils.isStringOnlyCode(val)) {
+        if (_.contains(skippedProps, key)) {
+          // if the prop can be skipped
+        } else if (_.startsWith(key, 'on') && !utils.isStringOnlyCode(val)) {
             props[propKey] = handleEventHandler(val, context, node, key)
         } else if (key === 'style' && !utils.isStringOnlyCode(val)) {
             props[propKey] = handleStyleProp(val, node, context)
@@ -359,6 +362,9 @@ function convertHtmlToReact(node, context) {
 
         const data = {name: convertTagNameToConstructor(node.name, context)}
 
+        if (context.options.enableSkipRequire == 'true' && node.attribs.skip == 'true') {
+            return 'null'
+        }
         // Order matters. We need to add the item and itemIndex to context.boundParams before
         // the rt-scope directive is processed, lest they are not passed to the child scopes
         if (node.attribs[repeatAttr]) {
@@ -582,6 +588,13 @@ function handleRequire(tag, context) {
         member = '*'
         alias = tag.attribs.as
     }
+
+    if ((context.options.enableSkipRequire == 'true') && (tag.attribs.skip == 'true')) {
+        return
+    } else {
+        defines[tag.attribs.dependency] = tag.attribs.as;
+    }
+
     if (!moduleName) {
         throw RTCodeError.build(context, tag, `'${requireAttr}' needs 'dependency' and 'as' attributes`)
     }
